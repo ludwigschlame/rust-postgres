@@ -768,6 +768,11 @@ pub struct RowDescriptionBody {
 
 impl RowDescriptionBody {
     #[inline]
+    pub fn raw_data(&self) -> &[u8] {
+        &self.storage
+    }
+
+    #[inline]
     pub fn fields(&self) -> Fields<'_> {
         Fields {
             buf: &self.storage,

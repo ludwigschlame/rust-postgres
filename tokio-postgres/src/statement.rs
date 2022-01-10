@@ -2,7 +2,7 @@ use crate::client::InnerClient;
 use crate::codec::FrontendMessage;
 use crate::connection::RequestMessages;
 use crate::types::Type;
-use postgres_protocol::message::frontend;
+use postgres_protocol::message::{backend::RowDescriptionBody, frontend};
 use std::{
     fmt,
     sync::{Arc, Weak},
@@ -13,6 +13,7 @@ struct StatementInner {
     name: String,
     params: Vec<Type>,
     columns: Vec<Column>,
+    body: Option<RowDescriptionBody>,
 }
 
 impl Drop for StatementInner {
@@ -40,12 +41,14 @@ impl Statement {
         name: String,
         params: Vec<Type>,
         columns: Vec<Column>,
+        body: Option<RowDescriptionBody>,
     ) -> Statement {
         Statement(Arc::new(StatementInner {
             client: Arc::downgrade(inner),
             name,
             params,
             columns,
+            body,
         }))
     }
 
@@ -61,6 +64,11 @@ impl Statement {
     /// Returns information about the columns returned when the statement is queried.
     pub fn columns(&self) -> &[Column] {
         &self.0.columns
+    }
+
+    /// Returns a reference to the raw RowDescription message related to this statement
+    pub fn row_description(&self) -> Option<&RowDescriptionBody> {
+        self.0.body.as_ref()
     }
 }
 

@@ -91,7 +91,7 @@ pub async fn prepare(
     }
 
     let mut columns = vec![];
-    if let Some(row_description) = row_description {
+    if let Some(row_description) = &row_description {
         let mut it = row_description.fields();
         while let Some(field) = it.next().map_err(Error::parse)? {
             let type_ = get_type(client, field.type_oid()).await?;
@@ -100,7 +100,13 @@ pub async fn prepare(
         }
     }
 
-    Ok(Statement::new(client, name, parameters, columns))
+    Ok(Statement::new(
+        client,
+        name,
+        parameters,
+        columns,
+        row_description,
+    ))
 }
 
 fn prepare_rec<'a>(

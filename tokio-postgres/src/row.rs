@@ -119,6 +119,16 @@ impl Row {
         })
     }
 
+    /// Returns a reference to the underlying DataRow message
+    pub fn data_row(&self) -> &DataRowBody {
+        &self.body
+    }
+
+    /// Converts row into the underlying DataRow message
+    pub fn into_data_row(self) -> DataRowBody {
+        self.body
+    }
+
     /// Returns information about the columns of data in the row.
     pub fn columns(&self) -> &[Column] {
         self.statement.columns()
