@@ -3,7 +3,7 @@ use crate::codec::FrontendMessage;
 use crate::connection::RequestMessages;
 use crate::error::SqlState;
 use crate::types::{Field, Kind, Oid, Type};
-use crate::{query, slice_iter};
+use crate::{query, slice_iter, ProtocolEncodingFormat};
 use crate::{Column, Error, Statement};
 use bytes::Bytes;
 use fallible_iterator::FallibleIterator;
@@ -62,6 +62,7 @@ pub async fn prepare(
     client: &Arc<InnerClient>,
     query: &str,
     types: &[Type],
+    result_format: ProtocolEncodingFormat,
 ) -> Result<Statement, Error> {
     let name = format!("s{}", NEXT_ID.fetch_add(1, Ordering::SeqCst));
     let buf = encode(client, &name, query, types)?;
@@ -106,6 +107,7 @@ pub async fn prepare(
         parameters,
         columns,
         row_description,
+        result_format,
     ))
 }
 
@@ -114,7 +116,12 @@ fn prepare_rec<'a>(
     query: &'a str,
     types: &'a [Type],
 ) -> Pin<Box<dyn Future<Output = Result<Statement, Error>> + 'a + Send>> {
-    Box::pin(prepare(client, query, types))
+    Box::pin(prepare(
+        client,
+        query,
+        types,
+        ProtocolEncodingFormat::Binary,
+    ))
 }
 
 fn encode(client: &InnerClient, name: &str, query: &str, types: &[Type]) -> Result<Bytes, Error> {

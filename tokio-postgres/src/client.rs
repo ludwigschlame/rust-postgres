@@ -12,7 +12,8 @@ use crate::types::{Oid, ToSql, Type};
 use crate::Socket;
 use crate::{
     copy_in, copy_out, prepare, query, simple_query, slice_iter, CancelToken, CopyInSink, Error,
-    Row, SimpleQueryMessage, Statement, ToStatement, Transaction, TransactionBuilder,
+    ProtocolEncodingFormat, Row, SimpleQueryMessage, Statement, ToStatement, Transaction,
+    TransactionBuilder,
 };
 use bytes::{Buf, BytesMut};
 use fallible_iterator::FallibleIterator;
@@ -205,6 +206,32 @@ impl Client {
         self.prepare_typed(query, &[]).await
     }
 
+    /// Creates a new prepared statement.
+    ///
+    /// Prepared statements can be executed repeatedly, and may contain query parameters (indicated by `$1`, `$2`, etc),
+    /// which are set when executed. Prepared statements can only be used with the connection that created them.
+    pub async fn prepare_with_result_format(
+        &self,
+        query: &str,
+        result_format: ProtocolEncodingFormat,
+    ) -> Result<Statement, Error> {
+        self.prepare_typed_with_result_format(query, &[], result_format)
+            .await
+    }
+
+    /// Like `prepare`, but allows the types of query parameters to be explicitly specified.
+    ///
+    /// The list of types may be smaller than the number of parameters - the types of the remaining parameters will be
+    /// inferred. For example, `client.prepare_typed(query, &[])` is equivalent to `client.prepare(query)`.
+    pub async fn prepare_typed_with_result_format(
+        &self,
+        query: &str,
+        parameter_types: &[Type],
+        result_format: ProtocolEncodingFormat,
+    ) -> Result<Statement, Error> {
+        prepare::prepare(&self.inner, query, parameter_types, result_format).await
+    }
+
     /// Like `prepare`, but allows the types of query parameters to be explicitly specified.
     ///
     /// The list of types may be smaller than the number of parameters - the types of the remaining parameters will be
@@ -214,7 +241,13 @@ impl Client {
         query: &str,
         parameter_types: &[Type],
     ) -> Result<Statement, Error> {
-        prepare::prepare(&self.inner, query, parameter_types).await
+        prepare::prepare(
+            &self.inner,
+            query,
+            parameter_types,
+            ProtocolEncodingFormat::Binary,
+        )
+        .await
     }
 
     /// Executes a statement, returning a vector of the resulting rows.
@@ -360,6 +393,7 @@ impl Client {
         &self,
         statement: &T,
         params: I,
+        result_format: ProtocolEncodingFormat,
     ) -> Result<(Statement, RowStream), Error>
     where
         T: ?Sized + ToStatement,
@@ -367,12 +401,14 @@ impl Client {
         I: IntoIterator<Item = P>,
         I::IntoIter: ExactSizeIterator,
     {
-        let statement = statement.__convert().into_statement(self).await?;
+        let statement = statement
+            .__convert(result_format)
+            .into_statement(self)
+            .await?;
         query::query(&self.inner, statement.clone(), params)
             .await
             .map(|query| (statement, query))
     }
-
     /// The maximally flexible version of [`query`].
     ///
     /// A statement may contain parameters, specified by `$n`, where `n` is the index of the parameter of the list
@@ -419,7 +455,10 @@ impl Client {
         I: IntoIterator<Item = P>,
         I::IntoIter: ExactSizeIterator,
     {
-        let statement = statement.__convert().into_statement(self).await?;
+        let statement = statement
+            .__convert(ProtocolEncodingFormat::Binary)
+            .into_statement(self)
+            .await?;
         query::query(&self.inner, statement, params).await
     }
 
@@ -469,7 +508,10 @@ impl Client {
         I: IntoIterator<Item = P>,
         I::IntoIter: ExactSizeIterator,
     {
-        let statement = statement.__convert().into_statement(self).await?;
+        let statement = statement
+            .__convert(ProtocolEncodingFormat::Binary)
+            .into_statement(self)
+            .await?;
         query::execute(self.inner(), statement, params).await
     }
 
@@ -486,7 +528,10 @@ impl Client {
         T: ?Sized + ToStatement,
         U: Buf + 'static + Send,
     {
-        let statement = statement.__convert().into_statement(self).await?;
+        let statement = statement
+            .__convert(ProtocolEncodingFormat::Binary)
+            .into_statement(self)
+            .await?;
         copy_in::copy_in(self.inner(), statement).await
     }
 
@@ -501,7 +546,10 @@ impl Client {
     where
         T: ?Sized + ToStatement,
     {
-        let statement = statement.__convert().into_statement(self).await?;
+        let statement = statement
+            .__convert(ProtocolEncodingFormat::Binary)
+            .into_statement(self)
+            .await?;
         copy_out::copy_out(self.inner(), statement).await
     }
 

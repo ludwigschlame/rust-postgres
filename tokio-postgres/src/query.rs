@@ -2,7 +2,7 @@ use crate::client::{InnerClient, Responses};
 use crate::codec::FrontendMessage;
 use crate::connection::RequestMessages;
 use crate::types::{BorrowToSql, IsNull};
-use crate::{Error, Portal, Row, Statement};
+use crate::{Error, Portal, ProtocolEncodingFormat, Row, Statement};
 use bytes::{Bytes, BytesMut};
 use futures::{ready, Stream};
 use log::{debug, log_enabled, Level};
@@ -179,7 +179,10 @@ where
                 Err(e)
             }
         },
-        Some(1),
+        match statement.result_format() {
+            ProtocolEncodingFormat::Binary => Some(1),
+            ProtocolEncodingFormat::Text => Some(0),
+        },
         buf,
     );
     match r {

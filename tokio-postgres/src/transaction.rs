@@ -9,8 +9,8 @@ use crate::types::{BorrowToSql, ToSql, Type};
 #[cfg(feature = "runtime")]
 use crate::Socket;
 use crate::{
-    bind, query, slice_iter, CancelToken, Client, CopyInSink, Error, Portal, Row,
-    SimpleQueryMessage, Statement, ToStatement,
+    bind, query, slice_iter, CancelToken, Client, CopyInSink, Error, Portal,
+    ProtocolEncodingFormat, Row, SimpleQueryMessage, Statement, ToStatement,
 };
 use bytes::Buf;
 use futures::TryStreamExt;
@@ -201,7 +201,10 @@ impl<'a> Transaction<'a> {
         I: IntoIterator<Item = P>,
         I::IntoIter: ExactSizeIterator,
     {
-        let statement = statement.__convert().into_statement(self.client).await?;
+        let statement = statement
+            .__convert(ProtocolEncodingFormat::Binary)
+            .into_statement(self.client)
+            .await?;
         bind::bind(self.client.inner(), statement, params).await
     }
 

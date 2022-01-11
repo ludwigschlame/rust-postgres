@@ -1,7 +1,7 @@
-use crate::client::InnerClient;
 use crate::codec::FrontendMessage;
 use crate::connection::RequestMessages;
 use crate::types::Type;
+use crate::{client::InnerClient, ProtocolEncodingFormat};
 use postgres_protocol::message::{backend::RowDescriptionBody, frontend};
 use std::{
     fmt,
@@ -14,6 +14,7 @@ struct StatementInner {
     params: Vec<Type>,
     columns: Vec<Column>,
     body: Option<RowDescriptionBody>,
+    result_format: ProtocolEncodingFormat,
 }
 
 impl Drop for StatementInner {
@@ -42,6 +43,7 @@ impl Statement {
         params: Vec<Type>,
         columns: Vec<Column>,
         body: Option<RowDescriptionBody>,
+        result_format: ProtocolEncodingFormat,
     ) -> Statement {
         Statement(Arc::new(StatementInner {
             client: Arc::downgrade(inner),
@@ -49,6 +51,7 @@ impl Statement {
             params,
             columns,
             body,
+            result_format,
         }))
     }
 
@@ -69,6 +72,11 @@ impl Statement {
     /// Returns a reference to the raw RowDescription message related to this statement
     pub fn row_description(&self) -> Option<&RowDescriptionBody> {
         self.0.body.as_ref()
+    }
+
+    /// Returns the protocol format of the result rows
+    pub fn result_format(&self) -> ProtocolEncodingFormat {
+        self.0.result_format
     }
 }
 

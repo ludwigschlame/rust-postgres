@@ -4,7 +4,7 @@ use crate::row::sealed::{AsName, Sealed};
 use crate::simple_query::SimpleColumn;
 use crate::statement::Column;
 use crate::types::{FromSql, Type, WrongType};
-use crate::{Error, Statement};
+use crate::{Error, ProtocolEncodingFormat, Statement};
 use fallible_iterator::FallibleIterator;
 use postgres_protocol::message::backend::DataRowBody;
 use std::fmt;
@@ -176,6 +176,10 @@ impl Row {
         I: RowIndex + fmt::Display,
         T: FromSql<'a>,
     {
+        if self.statement.result_format() != ProtocolEncodingFormat::Binary {
+            self.fail_non_binary_format()?;
+        }
+
         let idx = match idx.__idx(self.columns()) {
             Some(idx) => idx,
             None => return Err(Error::column(idx.to_string())),
@@ -190,6 +194,13 @@ impl Row {
         }
 
         FromSql::from_sql_nullable(ty, self.col_buffer(idx)).map_err(|e| Error::from_sql(e, idx))
+    }
+
+    #[cold]
+    fn fail_non_binary_format(&self) -> Result<(), Error> {
+        return Err(Error::column(format!(
+            "format must be binary to support parameter extraction"
+        )));
     }
 
     /// Get the raw bytes for the column at the given index.
