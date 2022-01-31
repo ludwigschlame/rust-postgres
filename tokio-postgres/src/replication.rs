@@ -3,7 +3,8 @@
 use crate::copy_both::CopyBothDuplex;
 use crate::Error;
 use bytes::{BufMut, Bytes, BytesMut};
-use futures::{ready, SinkExt, Stream};
+use futures::stream::SplitSink;
+use futures::{ready, Sink, SinkExt, Stream};
 use pin_project_lite::pin_project;
 use postgres_protocol::message::backend::{LogicalReplicationMessage, ReplicationMessage};
 use postgres_protocol::PG_EPOCH;
@@ -85,6 +86,56 @@ impl ReplicationStream {
         buf.put_u32(catalog_xmin_epoch);
 
         this.stream.send(buf.freeze()).await
+    }
+
+    /// Send standby update to server.
+    pub async fn standby_status_update_static(
+        sink: &mut SplitSink<CopyBothDuplex<Bytes>, Bytes>,
+        write_lsn: PgLsn,
+        flush_lsn: PgLsn,
+        apply_lsn: PgLsn,
+        timestamp: SystemTime,
+        reply: u8,
+    ) -> Result<(), Error> {
+        let timestamp = match timestamp.duration_since(*PG_EPOCH) {
+            Ok(d) => d.as_micros() as i64,
+            Err(e) => -(e.duration().as_micros() as i64),
+        };
+
+        let mut buf = BytesMut::new();
+        buf.put_u8(STANDBY_STATUS_UPDATE_TAG);
+        buf.put_u64(write_lsn.into());
+        buf.put_u64(flush_lsn.into());
+        buf.put_u64(apply_lsn.into());
+        buf.put_i64(timestamp);
+        buf.put_u8(reply);
+
+        sink.send(buf.freeze()).await
+    }
+
+    /// Send hot standby feedback message to server.
+    pub async fn hot_standby_feedback_static(
+        sink: &mut SplitSink<CopyBothDuplex<Bytes>, Bytes>,
+        timestamp: SystemTime,
+        global_xmin: u32,
+        global_xmin_epoch: u32,
+        catalog_xmin: u32,
+        catalog_xmin_epoch: u32,
+    ) -> Result<(), Error> {
+        let timestamp = match timestamp.duration_since(*PG_EPOCH) {
+            Ok(d) => d.as_micros() as i64,
+            Err(e) => -(e.duration().as_micros() as i64),
+        };
+
+        let mut buf = BytesMut::new();
+        buf.put_u8(HOT_STANDBY_FEEDBACK_TAG);
+        buf.put_i64(timestamp);
+        buf.put_u32(global_xmin);
+        buf.put_u32(global_xmin_epoch);
+        buf.put_u32(catalog_xmin);
+        buf.put_u32(catalog_xmin_epoch);
+
+        sink.send(buf.freeze()).await
     }
 }
 

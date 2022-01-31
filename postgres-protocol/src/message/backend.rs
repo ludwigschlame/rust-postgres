@@ -655,6 +655,10 @@ pub struct DataRowBody {
 }
 
 impl DataRowBody {
+    pub fn new(storage: Bytes, len: u16) -> Self {
+        Self { storage, len }
+    }
+
     #[inline]
     pub fn ranges(&self) -> DataRowRanges<'_> {
         DataRowRanges {
@@ -662,6 +666,11 @@ impl DataRowBody {
             len: self.storage.len(),
             remaining: self.len,
         }
+    }
+
+    #[inline]
+    pub fn raw_field_count(&self) -> u16 {
+        self.len
     }
 
     #[inline]
@@ -886,15 +895,25 @@ impl ReadyForQueryBody {
     }
 }
 
+#[derive(Clone)]
 pub struct RowDescriptionBody {
     storage: Bytes,
     len: u16,
 }
 
 impl RowDescriptionBody {
+    pub fn new(storage: Bytes, len: u16) -> Self {
+        Self { storage, len }
+    }
+
     #[inline]
     pub fn raw_data(&self) -> &[u8] {
         &self.storage
+    }
+
+    #[inline]
+    pub fn raw_field_count(&self) -> u16 {
+        self.len
     }
 
     #[inline]
