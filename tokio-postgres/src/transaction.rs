@@ -5,7 +5,7 @@ use crate::query::RowStream;
 #[cfg(feature = "runtime")]
 use crate::tls::MakeTlsConnect;
 use crate::tls::TlsConnect;
-use crate::types::{BorrowToSql, ToSql, Type};
+use crate::types::{BorrowToSql, ToSql};
 #[cfg(feature = "runtime")]
 use crate::Socket;
 use crate::{
@@ -14,6 +14,7 @@ use crate::{
 };
 use bytes::Buf;
 use futures::TryStreamExt;
+use postgres_protocol::Oid;
 use postgres_protocol::message::frontend;
 use tokio::io::{AsyncRead, AsyncWrite};
 
@@ -97,7 +98,7 @@ impl<'a> Transaction<'a> {
     pub async fn prepare_typed(
         &self,
         query: &str,
-        parameter_types: &[Type],
+        parameter_types: &[Oid],
     ) -> Result<Statement, Error> {
         self.client.prepare_typed(query, parameter_types).await
     }

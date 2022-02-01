@@ -4,7 +4,7 @@ use crate::copy_both::CopyBothDuplex;
 use crate::Error;
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::stream::SplitSink;
-use futures::{ready, Sink, SinkExt, Stream};
+use futures::{ready, SinkExt, Stream};
 use pin_project_lite::pin_project;
 use postgres_protocol::message::backend::{LogicalReplicationMessage, ReplicationMessage};
 use postgres_protocol::PG_EPOCH;

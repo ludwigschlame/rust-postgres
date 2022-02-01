@@ -61,7 +61,7 @@ static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 pub async fn prepare(
     client: &Arc<InnerClient>,
     query: &str,
-    types: &[Type],
+    types: &[Oid],
     result_format: ProtocolEncodingFormat,
 ) -> Result<Statement, Error> {
     let name = format!("s{}", NEXT_ID.fetch_add(1, Ordering::SeqCst));
@@ -114,7 +114,7 @@ pub async fn prepare(
 fn prepare_rec<'a>(
     client: &'a Arc<InnerClient>,
     query: &'a str,
-    types: &'a [Type],
+    types: &'a [Oid],
 ) -> Pin<Box<dyn Future<Output = Result<Statement, Error>> + 'a + Send>> {
     Box::pin(prepare(
         client,
@@ -124,7 +124,7 @@ fn prepare_rec<'a>(
     ))
 }
 
-fn encode(client: &InnerClient, name: &str, query: &str, types: &[Type]) -> Result<Bytes, Error> {
+fn encode(client: &InnerClient, name: &str, query: &str, types: &[Oid]) -> Result<Bytes, Error> {
     if types.is_empty() {
         debug!("preparing query {}: {}", name, query);
     } else {
@@ -132,7 +132,7 @@ fn encode(client: &InnerClient, name: &str, query: &str, types: &[Type]) -> Resu
     }
 
     client.with_buf(|buf| {
-        frontend::parse(name, query, types.iter().map(Type::oid), buf).map_err(Error::encode)?;
+        frontend::parse(name, query, types.iter().copied(), buf).map_err(Error::encode)?;
         frontend::describe(b'S', name, buf).map_err(Error::encode)?;
         frontend::sync(buf);
         Ok(buf.split().freeze())

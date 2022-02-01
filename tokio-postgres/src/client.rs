@@ -228,7 +228,7 @@ impl Client {
     pub async fn prepare_typed_with_result_format(
         &self,
         query: &str,
-        parameter_types: &[Type],
+        parameter_types: &[Oid],
         result_format: ProtocolEncodingFormat,
     ) -> Result<Statement, Error> {
         prepare::prepare(&self.inner, query, parameter_types, result_format).await
@@ -241,7 +241,7 @@ impl Client {
     pub async fn prepare_typed(
         &self,
         query: &str,
-        parameter_types: &[Type],
+        parameter_types: &[Oid],
     ) -> Result<Statement, Error> {
         prepare::prepare(
             &self.inner,

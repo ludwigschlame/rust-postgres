@@ -1,7 +1,8 @@
 use crate::query::RowStream;
-use crate::types::{BorrowToSql, ToSql, Type};
+use crate::types::{BorrowToSql, ToSql};
 use crate::{Client, Error, Row, Statement, ToStatement, Transaction};
 use async_trait::async_trait;
+use postgres_protocol::Oid;
 
 mod private {
     pub trait Sealed {}
@@ -63,7 +64,7 @@ pub trait GenericClient: private::Sealed {
     async fn prepare_typed(
         &self,
         query: &str,
-        parameter_types: &[Type],
+        parameter_types: &[Oid],
     ) -> Result<Statement, Error>;
 
     /// Like `Client::transaction`.
@@ -140,7 +141,7 @@ impl GenericClient for Client {
     async fn prepare_typed(
         &self,
         query: &str,
-        parameter_types: &[Type],
+        parameter_types: &[Oid],
     ) -> Result<Statement, Error> {
         self.prepare_typed(query, parameter_types).await
     }
@@ -222,7 +223,7 @@ impl GenericClient for Transaction<'_> {
     async fn prepare_typed(
         &self,
         query: &str,
-        parameter_types: &[Type],
+        parameter_types: &[Oid],
     ) -> Result<Statement, Error> {
         self.prepare_typed(query, parameter_types).await
     }
