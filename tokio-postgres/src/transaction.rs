@@ -10,12 +10,13 @@ use crate::types::{BorrowToSql, ToSql};
 use crate::Socket;
 use crate::{
     bind, query, slice_iter, CancelToken, Client, CopyInSink, Error, Portal,
-    ProtocolEncodingFormat, Row, SimpleQueryMessage, Statement, ToStatement,
+     Row, SimpleQueryMessage, Statement, ToStatement,
 };
 use bytes::Buf;
 use futures::TryStreamExt;
 use postgres_protocol::Oid;
 use postgres_protocol::message::frontend;
+use postgres_types::ProtocolEncodingFormat;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 /// A representation of a PostgreSQL database transaction.

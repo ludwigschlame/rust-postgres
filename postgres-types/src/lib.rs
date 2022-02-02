@@ -130,6 +130,7 @@
 
 use fallible_iterator::FallibleIterator;
 use postgres_protocol::types::{self, ArrayDimension};
+use smallvec::SmallVec;
 use std::any::type_name;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -154,7 +155,7 @@ pub use postgres_protocol::Oid;
 pub use pg_lsn::PgLsn;
 
 pub use crate::special::{Date, Timestamp};
-use bytes::BytesMut;
+use bytes::{BufMut, BytesMut};
 
 // Number of seconds from 1970-01-01 to 2000-01-01
 const TIME_SEC_CONVERSION: u64 = 946_684_800;
@@ -796,6 +797,13 @@ pub trait ToSql: fmt::Debug {
         ty: &Type,
         out: &mut BytesMut,
     ) -> Result<IsNull, Box<dyn Error + Sync + Send>>;
+
+    /// postgres parameter format, can be text for
+    /// parameters in extended query protocol
+    /// used by proxy
+    fn parameter_encoding_format(&self) -> ProtocolEncodingFormat {
+        ProtocolEncodingFormat::Binary
+    }
 }
 
 impl<'a, T> ToSql for &'a T
@@ -1122,5 +1130,64 @@ where
     #[inline]
     fn borrow_to_sql(&self) -> &dyn ToSql {
         self
+    }
+}
+
+// generic sql argument for proxy
+
+/// Message format, es explained here in
+/// https://www.postgresql.org/docs/14/protocol-message-formats.html
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProtocolEncodingFormat {
+    /// Binary format
+    Binary,
+    /// Text format
+    Text,
+}
+
+impl Into<i16> for ProtocolEncodingFormat {
+    fn into(self) -> i16 {
+        match self {
+            Self::Text => 0,
+            Self::Binary => 1,
+        }
+    }
+}
+
+/// struct that holds raw sql values for
+/// parameters in extended query protocol
+/// used by proxy
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawSqlValue {
+    data: Option<SmallVec<[u8; 8]>>,
+    encoding: ProtocolEncodingFormat,
+}
+
+impl ToSql for RawSqlValue {
+    fn to_sql(&self, _ty: &Type, out: &mut BytesMut) -> Result<IsNull, Box<dyn Error + Sync + Send>>
+    where
+        Self: Sized,
+    {
+        match &self.data {
+            Some(data) => {
+                out.put_slice(&data[..]);
+                Ok(IsNull::No)
+            }
+            None => Ok(IsNull::Yes),
+        }
+    }
+
+    fn accepts(_ty: &Type) -> bool
+    where
+        Self: Sized,
+    {
+        // TODO: do we need to store the type here?
+        true
+    }
+
+    to_sql_checked!();
+
+    fn parameter_encoding_format(&self) -> ProtocolEncodingFormat {
+        self.encoding
     }
 }

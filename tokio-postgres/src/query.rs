@@ -2,13 +2,15 @@ use crate::client::{InnerClient, Responses};
 use crate::codec::FrontendMessage;
 use crate::connection::RequestMessages;
 use crate::types::{BorrowToSql, IsNull};
-use crate::{Error, Portal, ProtocolEncodingFormat, Row, Statement};
+use crate::{Error, Portal, Row, Statement};
 use bytes::{Bytes, BytesMut};
 use futures::{ready, Stream};
 use log::{debug, log_enabled, Level};
 use pin_project_lite::pin_project;
 use postgres_protocol::message::backend::Message;
 use postgres_protocol::message::frontend;
+use postgres_types::ProtocolEncodingFormat;
+use smallvec::SmallVec;
 use std::fmt;
 use std::marker::PhantomPinned;
 use std::pin::Pin;
@@ -156,7 +158,7 @@ where
     I: IntoIterator<Item = P>,
     I::IntoIter: ExactSizeIterator,
 {
-    let params = params.into_iter();
+    let params: SmallVec<[_; 4]> = params.into_iter().collect();
 
     assert!(
         statement.params().len() == params.len(),
@@ -169,8 +171,11 @@ where
     let r = frontend::bind(
         portal,
         statement.name(),
-        Some(1),
-        params.zip(statement.params()).enumerate(),
+        params
+            .iter()
+            .map(|p| p.borrow_to_sql().parameter_encoding_format().into())
+            .collect::<SmallVec<[_; 8]>>(),
+        params.into_iter().zip(statement.params()).enumerate(),
         |(idx, (param, ty)), buf| match param.borrow_to_sql().to_sql_checked(ty, buf) {
             Ok(IsNull::No) => Ok(postgres_protocol::IsNull::No),
             Ok(IsNull::Yes) => Ok(postgres_protocol::IsNull::Yes),

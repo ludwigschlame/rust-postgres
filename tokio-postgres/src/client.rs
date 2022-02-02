@@ -13,7 +13,7 @@ use crate::types::{Oid, ToSql, Type};
 use crate::Socket;
 use crate::{
     copy_in, copy_out, prepare, query, simple_query, slice_iter, CancelToken, CopyInSink, Error,
-    ProtocolEncodingFormat, Row, SimpleQueryMessage, Statement, ToStatement, Transaction,
+   Row, SimpleQueryMessage, Statement, ToStatement, Transaction,
     copy_both, TransactionBuilder
 };
 
@@ -23,7 +23,7 @@ use futures::channel::mpsc;
 use futures::{future, pin_mut, ready, StreamExt, TryStreamExt};
 use parking_lot::Mutex;
 use postgres_protocol::message::{backend::Message, frontend};
-use postgres_types::BorrowToSql;
+use postgres_types::{BorrowToSql, ProtocolEncodingFormat};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;

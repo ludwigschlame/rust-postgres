@@ -1,8 +1,12 @@
+use postgres_types::ProtocolEncodingFormat;
+
 use crate::to_statement::private::{Sealed, ToStatementType};
-use crate::{ProtocolEncodingFormat, Statement};
+use crate::Statement;
 
 mod private {
-    use crate::{Client, Error, ProtocolEncodingFormat, Statement};
+    use postgres_types::ProtocolEncodingFormat;
+
+    use crate::{Client, Error, Statement};
 
     pub trait Sealed {}
 

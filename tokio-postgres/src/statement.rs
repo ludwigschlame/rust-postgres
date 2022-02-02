@@ -1,8 +1,9 @@
 use crate::codec::FrontendMessage;
 use crate::connection::RequestMessages;
 use crate::types::Type;
-use crate::{client::InnerClient, ProtocolEncodingFormat};
+use crate::{client::InnerClient};
 use postgres_protocol::message::{backend::RowDescriptionBody, frontend};
+use postgres_types::ProtocolEncodingFormat;
 use std::{
     fmt,
     sync::{Arc, Weak},

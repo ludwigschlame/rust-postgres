@@ -253,13 +253,3 @@ fn slice_iter<'a>(
 ) -> impl ExactSizeIterator<Item = &'a dyn ToSql> + 'a {
     s.iter().map(|s| *s as _)
 }
-
-/// Message format, es explained here in
-/// https://www.postgresql.org/docs/14/protocol-message-formats.html
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProtocolEncodingFormat {
-    /// Binary format
-    Binary,
-    /// Text format
-    Text,
-}
