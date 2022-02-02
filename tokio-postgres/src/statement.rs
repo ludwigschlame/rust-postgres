@@ -3,7 +3,6 @@ use crate::codec::FrontendMessage;
 use crate::connection::RequestMessages;
 use crate::types::Type;
 use postgres_protocol::message::{backend::RowDescriptionBody, frontend};
-use postgres_types::ProtocolEncodingFormat;
 use std::{
     fmt,
     sync::{Arc, Weak},

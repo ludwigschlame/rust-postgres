@@ -9,7 +9,6 @@ use log::{debug, log_enabled, Level};
 use pin_project_lite::pin_project;
 use postgres_protocol::message::backend::Message;
 use postgres_protocol::message::frontend;
-use postgres_types::ProtocolEncodingFormat;
 use smallvec::SmallVec;
 use std::fmt;
 use std::marker::PhantomPinned;

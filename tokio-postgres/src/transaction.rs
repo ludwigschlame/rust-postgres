@@ -5,7 +5,7 @@ use crate::query::RowStream;
 #[cfg(feature = "runtime")]
 use crate::tls::MakeTlsConnect;
 use crate::tls::TlsConnect;
-use crate::types::{BorrowToSql, ToSql, Type};
+use crate::types::{BorrowToSql, ToSql};
 #[cfg(feature = "runtime")]
 use crate::Socket;
 use crate::{

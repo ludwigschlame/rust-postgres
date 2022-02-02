@@ -7,7 +7,6 @@ use crate::types::{FromSql, Type, WrongType};
 use crate::{Error, Statement};
 use fallible_iterator::FallibleIterator;
 use postgres_protocol::message::backend::DataRowBody;
-use postgres_types::ProtocolEncodingFormat;
 use std::fmt;
 use std::ops::Range;
 use std::str;

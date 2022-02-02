@@ -11,7 +11,6 @@ use futures::{pin_mut, TryStreamExt};
 use log::debug;
 use postgres_protocol::message::backend::Message;
 use postgres_protocol::message::frontend;
-use postgres_types::ProtocolEncodingFormat;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicUsize, Ordering};
