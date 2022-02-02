@@ -184,10 +184,7 @@ where
                 Err(e)
             }
         },
-        match statement.result_format() {
-            ProtocolEncodingFormat::Binary => Some(1),
-            ProtocolEncodingFormat::Text => Some(0),
-        },
+        Some(1),
         buf,
     );
     match r {

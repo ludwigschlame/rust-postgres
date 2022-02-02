@@ -63,7 +63,6 @@ pub async fn prepare(
     client: &Arc<InnerClient>,
     query: &str,
     types: &[Oid],
-    result_format: ProtocolEncodingFormat,
 ) -> Result<Statement, Error> {
     let name = format!("s{}", NEXT_ID.fetch_add(1, Ordering::SeqCst));
     let buf = encode(client, &name, query, types)?;
@@ -108,7 +107,6 @@ pub async fn prepare(
         parameters,
         columns,
         row_description,
-        result_format,
     ))
 }
 
@@ -117,12 +115,7 @@ fn prepare_rec<'a>(
     query: &'a str,
     types: &'a [Oid],
 ) -> Pin<Box<dyn Future<Output = Result<Statement, Error>> + 'a + Send>> {
-    Box::pin(prepare(
-        client,
-        query,
-        types,
-        ProtocolEncodingFormat::Binary,
-    ))
+    Box::pin(prepare(client, query, types))
 }
 
 fn encode(client: &InnerClient, name: &str, query: &str, types: &[Oid]) -> Result<Bytes, Error> {

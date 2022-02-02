@@ -3,8 +3,8 @@ services:
   postgres:
     image: postgres:14
     ports:
-      - 5433:5433
-    volumes:
-      - ./docker/sql_setup.sh:/docker-entrypoint-initdb.d/sql_setup.sh
+      - 5433:5432
+    #volumes:
+    #  - ./docker/sql_setup.sh:/docker-entrypoint-initdb.d/sql_setup.sh
     environment:
       POSTGRES_PASSWORD: postgres
