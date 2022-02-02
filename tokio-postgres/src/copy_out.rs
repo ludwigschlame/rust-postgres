@@ -7,6 +7,7 @@ use futures::{ready, Stream};
 use log::debug;
 use pin_project_lite::pin_project;
 use postgres_protocol::message::backend::Message;
+use postgres_types::ProtocolEncodingFormat;
 use std::marker::PhantomPinned;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -25,7 +26,12 @@ pub async fn copy_out_simple(client: &InnerClient, query: &str) -> Result<CopyOu
 pub async fn copy_out(client: &InnerClient, statement: Statement) -> Result<CopyOutStream, Error> {
     debug!("executing copy out statement {}", statement.name());
 
-    let buf = query::encode(client, &statement, slice_iter(&[]))?;
+    let buf = query::encode(
+        client,
+        &statement,
+        slice_iter(&[]),
+        &[ProtocolEncodingFormat::Binary],
+    )?;
     let responses = start(client, buf, false).await?;
     Ok(CopyOutStream {
         responses,

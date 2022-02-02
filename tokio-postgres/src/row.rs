@@ -99,6 +99,7 @@ pub struct Row {
     statement: Statement,
     body: DataRowBody,
     ranges: Vec<Option<Range<usize>>>,
+    extract_allowed: bool,
 }
 
 impl fmt::Debug for Row {
@@ -110,12 +111,17 @@ impl fmt::Debug for Row {
 }
 
 impl Row {
-    pub(crate) fn new(statement: Statement, body: DataRowBody) -> Result<Row, Error> {
+    pub(crate) fn new(
+        statement: Statement,
+        body: DataRowBody,
+        extract_allowed: bool,
+    ) -> Result<Row, Error> {
         let ranges = body.ranges().collect().map_err(Error::parse)?;
         Ok(Row {
             statement,
             body,
             ranges,
+            extract_allowed,
         })
     }
 
@@ -176,6 +182,10 @@ impl Row {
         I: RowIndex + fmt::Display,
         T: FromSql<'a>,
     {
+        if !self.extract_allowed {
+            self.fail_non_binary_format()?;
+        }
+
         let idx = match idx.__idx(self.columns()) {
             Some(idx) => idx,
             None => return Err(Error::column(idx.to_string())),
@@ -196,6 +206,20 @@ impl Row {
     fn col_buffer(&self, idx: usize) -> Option<&[u8]> {
         let range = self.ranges[idx].to_owned()?;
         Some(&self.body.buffer()[range])
+    }
+
+    #[cold]
+    fn fail_non_binary_format(&self) -> Result<(), Error> {
+        return Err(Error::column(format!(
+            "format must be binary to support parameter extraction"
+        )));
+    }
+
+    /// return true if parameters ca be extracted with 'get' 
+    /// and 'try_get'. This is only possible if encoding is
+    /// 'Binary' for each column
+    pub fn extract_allowed(&self) -> bool {
+        self.extract_allowed
     }
 }
 

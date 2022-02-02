@@ -9,6 +9,7 @@ use log::{debug, log_enabled, Level};
 use pin_project_lite::pin_project;
 use postgres_protocol::message::backend::Message;
 use postgres_protocol::message::frontend;
+use postgres_types::ProtocolEncodingFormat;
 use smallvec::SmallVec;
 use std::fmt;
 use std::marker::PhantomPinned;
@@ -32,6 +33,7 @@ pub async fn query<P, I>(
     client: &InnerClient,
     statement: Statement,
     params: I,
+    result_formats: &[ProtocolEncodingFormat],
 ) -> Result<RowStream, Error>
 where
     P: BorrowToSql,
@@ -45,15 +47,18 @@ where
             statement.name(),
             BorrowToSqlParamsDebug(params.as_slice()),
         );
-        encode(client, &statement, params)?
+        encode(client, &statement, params, result_formats)?
     } else {
-        encode(client, &statement, params)?
+        encode(client, &statement, params, result_formats)?
     };
     let responses = start(client, buf).await?;
     Ok(RowStream {
         statement,
         responses,
         _p: PhantomPinned,
+        extract_allowed: result_formats
+            .into_iter()
+            .all(|e| ProtocolEncodingFormat::Binary == *e),
     })
 }
 
@@ -61,6 +66,7 @@ pub async fn query_portal(
     client: &InnerClient,
     portal: &Portal,
     max_rows: i32,
+    result_formats: &[ProtocolEncodingFormat],
 ) -> Result<RowStream, Error> {
     let buf = client.with_buf(|buf| {
         frontend::execute(portal.name(), max_rows, buf).map_err(Error::encode)?;
@@ -74,6 +80,9 @@ pub async fn query_portal(
         statement: portal.statement().clone(),
         responses,
         _p: PhantomPinned,
+        extract_allowed: result_formats
+            .into_iter()
+            .all(|e| ProtocolEncodingFormat::Binary == *e),
     })
 }
 
@@ -94,9 +103,19 @@ where
             statement.name(),
             BorrowToSqlParamsDebug(params.as_slice()),
         );
-        encode(client, &statement, params)?
+        encode(
+            client,
+            &statement,
+            params,
+            &[ProtocolEncodingFormat::Binary],
+        )?
     } else {
-        encode(client, &statement, params)?
+        encode(
+            client,
+            &statement,
+            params,
+            &[ProtocolEncodingFormat::Binary],
+        )?
     };
     let mut responses = start(client, buf).await?;
 
@@ -132,14 +151,19 @@ async fn start(client: &InnerClient, buf: Bytes) -> Result<Responses, Error> {
     Ok(responses)
 }
 
-pub fn encode<P, I>(client: &InnerClient, statement: &Statement, params: I) -> Result<Bytes, Error>
+pub fn encode<P, I>(
+    client: &InnerClient,
+    statement: &Statement,
+    params: I,
+    result_formats: &[ProtocolEncodingFormat],
+) -> Result<Bytes, Error>
 where
     P: BorrowToSql,
     I: IntoIterator<Item = P>,
     I::IntoIter: ExactSizeIterator,
 {
     client.with_buf(|buf| {
-        encode_bind(statement, params, "", buf)?;
+        encode_bind(statement, params, "", buf, result_formats)?;
         frontend::execute("", 0, buf).map_err(Error::encode)?;
         frontend::sync(buf);
         Ok(buf.split().freeze())
@@ -151,6 +175,7 @@ pub fn encode_bind<P, I>(
     params: I,
     portal: &str,
     buf: &mut BytesMut,
+    result_formats: &[ProtocolEncodingFormat],
 ) -> Result<(), Error>
 where
     P: BorrowToSql,
@@ -183,7 +208,7 @@ where
                 Err(e)
             }
         },
-        Some(1),
+        result_formats.into_iter().map(|e| (*e).into()),
         buf,
     );
     match r {
@@ -200,6 +225,7 @@ pin_project! {
         responses: Responses,
         #[pin]
         _p: PhantomPinned,
+        extract_allowed: bool,
     }
 }
 
@@ -211,7 +237,11 @@ impl Stream for RowStream {
         loop {
             match ready!(this.responses.poll_next(cx)?) {
                 Message::DataRow(body) => {
-                    return Poll::Ready(Some(Ok(Row::new(this.statement.clone(), body)?)))
+                    return Poll::Ready(Some(Ok(Row::new(
+                        this.statement.clone(),
+                        body,
+                        *this.extract_allowed,
+                    )?)))
                 }
                 Message::EmptyQueryResponse
                 | Message::CommandComplete(_)

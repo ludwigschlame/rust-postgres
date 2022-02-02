@@ -12,9 +12,9 @@ use crate::types::{Oid, ToSql, Type};
 #[cfg(feature = "runtime")]
 use crate::Socket;
 use crate::{
-    copy_in, copy_out, prepare, query, simple_query, slice_iter, CancelToken, CopyInSink, Error,
-    Row, SimpleQueryMessage, Statement, ToStatement, Transaction,
-    copy_both, TransactionBuilder,
+    copy_both, copy_in, copy_out, prepare, query, simple_query, slice_iter, CancelToken,
+    CopyInSink, Error, Row, SimpleQueryMessage, Statement, ToStatement, Transaction,
+    TransactionBuilder,
 };
 
 use bytes::{Buf, BytesMut};
@@ -23,7 +23,7 @@ use futures::channel::mpsc;
 use futures::{future, pin_mut, ready, StreamExt, TryStreamExt};
 use parking_lot::Mutex;
 use postgres_protocol::message::{backend::Message, frontend};
-use postgres_types::BorrowToSql;
+use postgres_types::{BorrowToSql, ProtocolEncodingFormat};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
@@ -320,62 +320,6 @@ impl Client {
         Ok(Some(row))
     }
 
-    /// The maximally flexible version of [`query`], including the statement
-    ///
-    /// A statement may contain parameters, specified by `$n`, where `n` is the index of the parameter of the list
-    /// provided, 1-indexed.
-    ///
-    /// The `statement` argument can either be a `Statement`, or a raw query string. If the same statement will be
-    /// repeatedly executed (perhaps with different query parameters), consider preparing the statement up front
-    /// with the `prepare` method.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the number of parameters provided does not match the number expected.
-    ///
-    /// [`query`]: #method.query
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # async fn async_main(client: &tokio_postgres::Client) -> Result<(), tokio_postgres::Error> {
-    /// use tokio_postgres::types::ToSql;
-    /// use futures::{pin_mut, TryStreamExt};
-    ///
-    /// let params: Vec<String> = vec![
-    ///     "first param".into(),
-    ///     "second param".into(),
-    /// ];
-    /// let (statement, mut it) = client.query_raw(
-    ///     "SELECT foo FROM bar WHERE biz = $1 AND baz = $2",
-    ///     params,
-    /// ).await?;
-    ///
-    /// pin_mut!(it);
-    /// while let Some(row) = it.try_next().await? {
-    ///     let foo: i32 = row.get("foo");
-    ///     println!("foo: {}", foo);
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub async fn query_raw_with_statement<T, P, I>(
-        &self,
-        statement: &T,
-        params: I,
-    ) -> Result<(Statement, RowStream), Error>
-    where
-        T: ?Sized + ToStatement,
-        P: BorrowToSql,
-        I: IntoIterator<Item = P>,
-        I::IntoIter: ExactSizeIterator,
-    {
-        let statement = statement.__convert().into_statement(self).await?;
-        query::query(&self.inner, statement.clone(), params)
-            .await
-            .map(|query| (statement, query))
-    }
-
     /// The maximally flexible version of [`query`].
     ///
     /// A statement may contain parameters, specified by `$n`, where `n` is the index of the parameter of the list
@@ -423,7 +367,68 @@ impl Client {
         I::IntoIter: ExactSizeIterator,
     {
         let statement = statement.__convert().into_statement(self).await?;
-        query::query(&self.inner, statement, params).await
+        query::query(
+            &self.inner,
+            statement,
+            params,
+            &[ProtocolEncodingFormat::Binary],
+        )
+        .await
+    }
+
+    /// The maximally flexible version of [`query`].
+    ///
+    /// A statement may contain parameters, specified by `$n`, where `n` is the index of the parameter of the list
+    /// provided, 1-indexed.
+    ///
+    /// The `statement` argument can either be a `Statement`, or a raw query string. If the same statement will be
+    /// repeatedly executed (perhaps with different query parameters), consider preparing the statement up front
+    /// with the `prepare` method.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of parameters provided does not match the number expected.
+    ///
+    /// [`query`]: #method.query
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn async_main(client: &tokio_postgres::Client) -> Result<(), tokio_postgres::Error> {
+    /// use tokio_postgres::types::ToSql;
+    /// use futures::{pin_mut, TryStreamExt};
+    ///
+    /// let params: Vec<String> = vec![
+    ///     "first param".into(),
+    ///     "second param".into(),
+    /// ];
+    /// let mut it = client.query_raw(
+    ///     "SELECT foo FROM bar WHERE biz = $1 AND baz = $2",
+    ///     params,
+    /// ).await?;
+    ///
+    /// pin_mut!(it);
+    /// while let Some(row) = it.try_next().await? {
+    ///     let foo: i32 = row.get("foo");
+    ///     println!("foo: {}", foo);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn query_raw_with_result_formats<T, P, I>(
+        &self,
+        statement: &T,
+        params: I,
+        result_formats: &[ProtocolEncodingFormat],
+    ) -> Result<RowStream, Error>
+    where
+        T: ?Sized + ToStatement,
+        P: BorrowToSql,
+        I: IntoIterator<Item = P>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        let statement = statement.__convert().into_statement(self).await?;
+        query::query(&self.inner, statement, params, result_formats).await
     }
 
     /// Executes a statement, returning the number of rows modified.

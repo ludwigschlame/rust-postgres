@@ -5,6 +5,7 @@ use crate::types::BorrowToSql;
 use crate::{query, Error, Portal, Statement};
 use postgres_protocol::message::backend::Message;
 use postgres_protocol::message::frontend;
+use postgres_types::ProtocolEncodingFormat;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -14,6 +15,7 @@ pub async fn bind<P, I>(
     client: &Arc<InnerClient>,
     statement: Statement,
     params: I,
+    result_formats: &[ProtocolEncodingFormat],
 ) -> Result<Portal, Error>
 where
     P: BorrowToSql,
@@ -22,7 +24,7 @@ where
 {
     let name = format!("p{}", NEXT_ID.fetch_add(1, Ordering::SeqCst));
     let buf = client.with_buf(|buf| {
-        query::encode_bind(&statement, params, &name, buf)?;
+        query::encode_bind(&statement, params, &name, buf, result_formats)?;
         frontend::sync(buf);
         Ok(buf.split().freeze())
     })?;

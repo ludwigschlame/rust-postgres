@@ -11,6 +11,7 @@ use pin_project_lite::pin_project;
 use postgres_protocol::message::backend::Message;
 use postgres_protocol::message::frontend;
 use postgres_protocol::message::frontend::CopyData;
+use postgres_types::ProtocolEncodingFormat;
 use std::marker::{PhantomData, PhantomPinned};
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -236,7 +237,12 @@ where
 {
     debug!("executing copy in statement {}", statement.name());
 
-    let buf = query::encode(client, &statement, slice_iter(&[]))?;
+    let buf = query::encode(
+        client,
+        &statement,
+        slice_iter(&[]),
+        &[ProtocolEncodingFormat::Binary],
+    )?;
     start(client, buf, false).await
 }
 

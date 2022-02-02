@@ -11,6 +11,7 @@ use futures::{pin_mut, TryStreamExt};
 use log::debug;
 use postgres_protocol::message::backend::Message;
 use postgres_protocol::message::frontend;
+use postgres_types::ProtocolEncodingFormat;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -143,7 +144,13 @@ async fn get_type(client: &Arc<InnerClient>, oid: Oid) -> Result<Type, Error> {
 
     let stmt = typeinfo_statement(client).await?;
 
-    let rows = query::query(client, stmt, slice_iter(&[&oid])).await?;
+    let rows = query::query(
+        client,
+        stmt,
+        slice_iter(&[&oid]),
+        &[ProtocolEncodingFormat::Binary],
+    )
+    .await?;
     pin_mut!(rows);
 
     let row = match rows.try_next().await? {
@@ -213,11 +220,16 @@ async fn typeinfo_statement(client: &Arc<InnerClient>) -> Result<Statement, Erro
 async fn get_enum_variants(client: &Arc<InnerClient>, oid: Oid) -> Result<Vec<String>, Error> {
     let stmt = typeinfo_enum_statement(client).await?;
 
-    query::query(client, stmt, slice_iter(&[&oid]))
-        .await?
-        .and_then(|row| async move { row.try_get(0) })
-        .try_collect()
-        .await
+    query::query(
+        client,
+        stmt,
+        slice_iter(&[&oid]),
+        &[ProtocolEncodingFormat::Binary],
+    )
+    .await?
+    .and_then(|row| async move { row.try_get(0) })
+    .try_collect()
+    .await
 }
 
 async fn typeinfo_enum_statement(client: &Arc<InnerClient>) -> Result<Statement, Error> {
@@ -240,10 +252,15 @@ async fn typeinfo_enum_statement(client: &Arc<InnerClient>) -> Result<Statement,
 async fn get_composite_fields(client: &Arc<InnerClient>, oid: Oid) -> Result<Vec<Field>, Error> {
     let stmt = typeinfo_composite_statement(client).await?;
 
-    let rows = query::query(client, stmt, slice_iter(&[&oid]))
-        .await?
-        .try_collect::<Vec<_>>()
-        .await?;
+    let rows = query::query(
+        client,
+        stmt,
+        slice_iter(&[&oid]),
+        &[ProtocolEncodingFormat::Binary],
+    )
+    .await?
+    .try_collect::<Vec<_>>()
+    .await?;
 
     let mut fields = vec![];
     for row in rows {

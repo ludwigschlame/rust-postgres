@@ -14,8 +14,9 @@ use crate::{
 };
 use bytes::Buf;
 use futures::TryStreamExt;
-use postgres_protocol::Oid;
 use postgres_protocol::message::frontend;
+use postgres_protocol::Oid;
+use postgres_types::ProtocolEncodingFormat;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 /// A representation of a PostgreSQL database transaction.
@@ -203,7 +204,13 @@ impl<'a> Transaction<'a> {
         I::IntoIter: ExactSizeIterator,
     {
         let statement = statement.__convert().into_statement(self.client).await?;
-        bind::bind(self.client.inner(), statement, params).await
+        bind::bind(
+            self.client.inner(),
+            statement,
+            params,
+            &[ProtocolEncodingFormat::Binary],
+        )
+        .await
     }
 
     /// Continues execution of a portal, returning a stream of the resulting rows.
@@ -225,7 +232,13 @@ impl<'a> Transaction<'a> {
         portal: &Portal,
         max_rows: i32,
     ) -> Result<RowStream, Error> {
-        query::query_portal(self.client.inner(), portal, max_rows).await
+        query::query_portal(
+            self.client.inner(),
+            portal,
+            max_rows,
+            &[ProtocolEncodingFormat::Binary],
+        )
+        .await
     }
 
     /// Like `Client::copy_in`.
