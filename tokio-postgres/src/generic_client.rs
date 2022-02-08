@@ -2,6 +2,7 @@ use crate::query::RowStream;
 use crate::types::{BorrowToSql, ToSql};
 use crate::{Client, Error, Row, Statement, ToStatement, Transaction};
 use async_trait::async_trait;
+use postgres_protocol::message::backend::CommandCompleteBody;
 use postgres_protocol::Oid;
 
 mod private {
@@ -14,12 +15,20 @@ mod private {
 #[async_trait]
 pub trait GenericClient: private::Sealed {
     /// Like `Client::execute`.
-    async fn execute<T>(&self, query: &T, params: &[&(dyn ToSql + Sync)]) -> Result<u64, Error>
+    async fn execute<T>(
+        &self,
+        query: &T,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> Result<Option<CommandCompleteBody>, Error>
     where
         T: ?Sized + ToStatement + Sync + Send;
 
     /// Like `Client::execute_raw`.
-    async fn execute_raw<P, I, T>(&self, statement: &T, params: I) -> Result<u64, Error>
+    async fn execute_raw<P, I, T>(
+        &self,
+        statement: &T,
+        params: I,
+    ) -> Result<Option<CommandCompleteBody>, Error>
     where
         T: ?Sized + ToStatement + Sync + Send,
         P: BorrowToSql,
@@ -61,11 +70,8 @@ pub trait GenericClient: private::Sealed {
     async fn prepare(&self, query: &str) -> Result<Statement, Error>;
 
     /// Like `Client::prepare_typed`.
-    async fn prepare_typed(
-        &self,
-        query: &str,
-        parameter_types: &[Oid],
-    ) -> Result<Statement, Error>;
+    async fn prepare_typed(&self, query: &str, parameter_types: &[Oid])
+        -> Result<Statement, Error>;
 
     /// Like `Client::transaction`.
     async fn transaction(&mut self) -> Result<Transaction<'_>, Error>;
@@ -78,14 +84,22 @@ impl private::Sealed for Client {}
 
 #[async_trait]
 impl GenericClient for Client {
-    async fn execute<T>(&self, query: &T, params: &[&(dyn ToSql + Sync)]) -> Result<u64, Error>
+    async fn execute<T>(
+        &self,
+        query: &T,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> Result<Option<CommandCompleteBody>, Error>
     where
         T: ?Sized + ToStatement + Sync + Send,
     {
         self.execute(query, params).await
     }
 
-    async fn execute_raw<P, I, T>(&self, statement: &T, params: I) -> Result<u64, Error>
+    async fn execute_raw<P, I, T>(
+        &self,
+        statement: &T,
+        params: I,
+    ) -> Result<Option<CommandCompleteBody>, Error>
     where
         T: ?Sized + ToStatement + Sync + Send,
         P: BorrowToSql,
@@ -160,14 +174,22 @@ impl private::Sealed for Transaction<'_> {}
 #[async_trait]
 #[allow(clippy::needless_lifetimes)]
 impl GenericClient for Transaction<'_> {
-    async fn execute<T>(&self, query: &T, params: &[&(dyn ToSql + Sync)]) -> Result<u64, Error>
+    async fn execute<T>(
+        &self,
+        query: &T,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> Result<Option<CommandCompleteBody>, Error>
     where
         T: ?Sized + ToStatement + Sync + Send,
     {
         self.execute(query, params).await
     }
 
-    async fn execute_raw<P, I, T>(&self, statement: &T, params: I) -> Result<u64, Error>
+    async fn execute_raw<P, I, T>(
+        &self,
+        statement: &T,
+        params: I,
+    ) -> Result<Option<CommandCompleteBody>, Error>
     where
         T: ?Sized + ToStatement + Sync + Send,
         P: BorrowToSql,

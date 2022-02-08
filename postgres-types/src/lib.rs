@@ -1137,7 +1137,7 @@ where
 
 /// Message format, es explained here in
 /// https://www.postgresql.org/docs/14/protocol-message-formats.html
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ProtocolEncodingFormat {
     /// Binary format
     Binary,
@@ -1160,7 +1160,27 @@ impl Into<i16> for ProtocolEncodingFormat {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawSqlValue {
     data: Option<SmallVec<[u8; 8]>>,
-    encoding: ProtocolEncodingFormat,
+    format: ProtocolEncodingFormat,
+}
+
+/// struct that holds raw sql values for
+/// parameters in extended query protocol
+/// used by proxy
+impl RawSqlValue {
+    /// construct a new RawSqlValue
+    pub fn new(data: Option<SmallVec<[u8; 8]>>, format: ProtocolEncodingFormat) -> Self {
+        Self { data, format }
+    }
+
+    /// format of the data type
+    pub fn format(&self) -> ProtocolEncodingFormat {
+        self.format
+    }
+
+    /// format of the data type
+    pub fn data(&self) -> &Option<SmallVec<[u8; 8]>> {
+        &self.data
+    }
 }
 
 impl ToSql for RawSqlValue {
@@ -1188,6 +1208,6 @@ impl ToSql for RawSqlValue {
     to_sql_checked!();
 
     fn parameter_encoding_format(&self) -> ProtocolEncodingFormat {
-        self.encoding
+        self.format
     }
 }

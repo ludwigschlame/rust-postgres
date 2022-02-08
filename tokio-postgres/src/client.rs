@@ -22,6 +22,7 @@ use fallible_iterator::FallibleIterator;
 use futures::channel::mpsc;
 use futures::{future, pin_mut, ready, StreamExt, TryStreamExt};
 use parking_lot::Mutex;
+use postgres_protocol::message::backend::CommandCompleteBody;
 use postgres_protocol::message::{backend::Message, frontend};
 use postgres_types::{BorrowToSql, ProtocolEncodingFormat};
 use std::collections::HashMap;
@@ -449,7 +450,7 @@ impl Client {
         &self,
         statement: &T,
         params: &[&(dyn ToSql + Sync)],
-    ) -> Result<u64, Error>
+    ) -> Result<Option<CommandCompleteBody>, Error>
     where
         T: ?Sized + ToStatement,
     {
@@ -470,7 +471,11 @@ impl Client {
     /// Panics if the number of parameters provided does not match the number expected.
     ///
     /// [`execute`]: #method.execute
-    pub async fn execute_raw<T, P, I>(&self, statement: &T, params: I) -> Result<u64, Error>
+    pub async fn execute_raw<T, P, I>(
+        &self,
+        statement: &T,
+        params: I,
+    ) -> Result<Option<CommandCompleteBody>, Error>
     where
         T: ?Sized + ToStatement,
         P: BorrowToSql,

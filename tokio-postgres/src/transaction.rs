@@ -14,6 +14,7 @@ use crate::{
 };
 use bytes::Buf;
 use futures::TryStreamExt;
+use postgres_protocol::message::backend::CommandCompleteBody;
 use postgres_protocol::message::frontend;
 use postgres_protocol::Oid;
 use postgres_types::ProtocolEncodingFormat;
@@ -156,7 +157,7 @@ impl<'a> Transaction<'a> {
         &self,
         statement: &T,
         params: &[&(dyn ToSql + Sync)],
-    ) -> Result<u64, Error>
+    ) -> Result<Option<CommandCompleteBody>, Error>
     where
         T: ?Sized + ToStatement,
     {
@@ -164,7 +165,11 @@ impl<'a> Transaction<'a> {
     }
 
     /// Like `Client::execute_iter`.
-    pub async fn execute_raw<P, I, T>(&self, statement: &T, params: I) -> Result<u64, Error>
+    pub async fn execute_raw<P, I, T>(
+        &self,
+        statement: &T,
+        params: I,
+    ) -> Result<Option<CommandCompleteBody>, Error>
     where
         T: ?Sized + ToStatement,
         P: BorrowToSql,

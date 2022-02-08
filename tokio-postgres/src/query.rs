@@ -7,7 +7,7 @@ use bytes::{Bytes, BytesMut};
 use futures::{ready, Stream};
 use log::{debug, log_enabled, Level};
 use pin_project_lite::pin_project;
-use postgres_protocol::message::backend::Message;
+use postgres_protocol::message::backend::{Message, CommandCompleteBody};
 use postgres_protocol::message::frontend;
 use postgres_types::ProtocolEncodingFormat;
 use smallvec::SmallVec;
@@ -90,7 +90,7 @@ pub async fn execute<P, I>(
     client: &InnerClient,
     statement: Statement,
     params: I,
-) -> Result<u64, Error>
+) -> Result<Option<CommandCompleteBody>, Error>
 where
     P: BorrowToSql,
     I: IntoIterator<Item = P>,
@@ -119,21 +119,14 @@ where
     };
     let mut responses = start(client, buf).await?;
 
-    let mut rows = 0;
+    let mut rows = None;
     loop {
         match responses.next().await? {
             Message::DataRow(_) => {}
             Message::CommandComplete(body) => {
-                rows = body
-                    .tag()
-                    .map_err(Error::parse)?
-                    .rsplit(' ')
-                    .next()
-                    .unwrap()
-                    .parse()
-                    .unwrap_or(0);
+                rows = Some(body);
             }
-            Message::EmptyQueryResponse => rows = 0,
+            Message::EmptyQueryResponse => { },
             Message::ReadyForQuery(_) => return Ok(rows),
             _ => return Err(Error::unexpected_message()),
         }
