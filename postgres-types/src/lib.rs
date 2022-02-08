@@ -823,6 +823,13 @@ where
     }
 
     to_sql_checked!();
+
+    /// postgres parameter format, can be text for
+    /// parameters in extended query protocol
+    /// used by proxy
+    fn parameter_encoding_format(&self) -> ProtocolEncodingFormat {
+        (*self).parameter_encoding_format()
+    }
 }
 
 impl<T: ToSql> ToSql for Option<T> {
